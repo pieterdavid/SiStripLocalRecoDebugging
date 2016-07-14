@@ -4,3 +4,11 @@
 # editor tmp files
 *~
 *.swp
+
+# TEST files and folders
+scripts/TEST/*
+
+# Plots and rootfiles
+*.pdf
+*.png
+*.root
