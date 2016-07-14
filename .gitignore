@@ -1,0 +1,6 @@
+# compiled python files
+*.pyc
+
+# editor tmp files
+*~
+*.swp
