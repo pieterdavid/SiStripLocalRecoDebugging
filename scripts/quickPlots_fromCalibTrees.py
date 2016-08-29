@@ -69,21 +69,6 @@ def main(perRun, perDetid, runs, detids, outdir, inputJsons, debug=False, nEntri
     for j in inputJsons:
         with open(j) as f:
             plots.update(json.load(f))
-#    plots['chargeoverpath'] = {
-#        'binning' : '(30, 0, 900)',
-#        'norm' : '1',
-#        'y-max' : 0.24,
-#    }
-#    plots['amplitude'] = {
-#        'binning' : '(100, 0, 100)',
-#        'norm' : '1',
-#        'y-max' : 0.1,
-#    }
-#    plots['gainused'] = {
-#        'binning' : '(30, 0.9, 1.2)',
-#        'norm' : '1',
-#        'y-max' : 1.2,
-#    }
     h = {}
     h_summed = {}
     for plot in plots:
