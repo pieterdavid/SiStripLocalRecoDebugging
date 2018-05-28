@@ -47,18 +47,19 @@ void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& e
       ++diffMods;
     } else { // A and B: compare
       const auto& dsetB = *i_dsetB;
+      bool hasDiff{false};
       if ( dsetB.size() != dsetA.size() ) {
         edm::LogWarning("SiStripRawDigiDiff") << "Different number of raw digis for det " << dsetA.id << ": " << dsetA.size() << " (A) versus " << dsetB.size() << " (B)";
+        hasDiff = true;
       } else {
-        bool hasDiff{false};
         for ( std::size_t i{0}; i != dsetA.size(); ++i ) {
           if ( dsetA[i].adc() != dsetB[i].adc() ) {
             edm::LogWarning("SistripRawDigiDiff") << "Different ADC at index " << i << " for det " << dsetA.id << ": " << dsetA[i].adc() << " (A) versus " << dsetB[i].adc() << " (B)";
             hasDiff = true;
           }
         }
-        if ( ! hasDiff ) { ++goodMods; } else { ++diffMods; }
       }
+      if ( ! hasDiff ) { ++goodMods; } else { ++diffMods; }
     }
   }
   for ( const auto& dsetB : *digisB ) {

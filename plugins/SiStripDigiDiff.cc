@@ -46,11 +46,12 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
       edm::LogWarning("SiStripDigiDiff") << "No DetSet in B for det " << dsetA.id << " that is in A";
       ++diffMods;
     } else { // A and B: compare
+      bool hasDiff{false};
       const auto& dsetB = *i_dsetB;
       if ( dsetB.size() != dsetA.size() ) {
         edm::LogWarning("SiStripDigiDiff") << "Different number of raw digis for det " << dsetA.id << ": " << dsetA.size() << " (A) versus " << dsetB.size() << " (B)";
+        hasDiff = true;
       } else {
-        bool hasDiff{false};
         for ( std::size_t i{0}; i != dsetA.size(); ++i ) {
           if ( dsetA[i].strip() != dsetB[i].strip() ) {
             edm::LogWarning("SistripDigiDiff") << "ADC for different strip at index " << i << " for det " << dsetA.id << ": " << dsetA[i].strip() << "," << dsetA[i].adc() << " (A) versus " << dsetB[i].strip() << "," << dsetB[i].adc() << " (B)";
@@ -60,8 +61,8 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
             hasDiff = true;
           }
         }
-        if ( ! hasDiff ) { ++goodMods; } else { ++diffMods; }
       }
+      if ( ! hasDiff ) { ++goodMods; } else { ++diffMods; }
     }
   }
   for ( const auto& dsetB : *digisB ) {
