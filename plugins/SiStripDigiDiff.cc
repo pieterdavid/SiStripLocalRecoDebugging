@@ -13,6 +13,7 @@ public:
 private:
   edm::EDGetTokenT<edm::DetSetVector<SiStripDigi>> m_digiAtoken;
   edm::EDGetTokenT<edm::DetSetVector<SiStripDigi>> m_digiBtoken;
+  uint16_t m_adcMask;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -29,6 +30,8 @@ SiStripDigiDiff::SiStripDigiDiff(const edm::ParameterSet& conf)
   const auto inTagB = conf.getParameter<edm::InputTag>("B");
   m_digiBtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagB);
   edm::LogInfo("SiStripDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB;
+  m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
+  edm::LogInfo("SiStripDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask;
 }
 
 void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSetup)
@@ -56,7 +59,7 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
           if ( dsetA[i].strip() != dsetB[i].strip() ) {
             edm::LogWarning("SistripDigiDiff") << "ADC for different strip at index " << i << " for det " << dsetA.id << ": " << dsetA[i].strip() << "," << dsetA[i].adc() << " (A) versus " << dsetB[i].strip() << "," << dsetB[i].adc() << " (B)";
             hasDiff = true;
-          } else if ( dsetA[i].adc() != dsetB[i].adc() ) {
+          } else if ( (dsetA[i].adc()&m_adcMask) != (dsetB[i].adc()&m_adcMask) ) {
             edm::LogWarning("SistripDigiDiff") << "Different ADC for strip " << dsetA[i].strip() << " in det " << dsetA.id << ": " << dsetA[i].adc() << " (A) versus " << dsetB[i].adc() << " (B)";
             hasDiff = true;
           }

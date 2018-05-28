@@ -60,6 +60,7 @@ repackedVRDigis = cms.InputTag("siStripUnpackRepackedVR", "VirginRaw")
 process.diffVR = cms.EDAnalyzer("SiStripRawDigiDiff",
         A = origVRDigis,
         B = repackedVRDigis,
+        BottomBitsToIgnore = cms.uint32(0)
         )
 
 process.siStripRepackZS = cms.EDProducer("SiStripDigiToRawModule",
@@ -75,7 +76,8 @@ process.siStripUnpackRepackedZS = siStripDigis.clone(
         )
 process.diffZS = cms.EDAnalyzer("SiStripDigiDiff",
         A = cms.InputTag("siStripZeroSuppression", "VirginRaw"),
-        B = cms.InputTag("siStripUnpackRepackedZS", "ZeroSuppressed")
+        B = cms.InputTag("siStripUnpackRepackedZS", "ZeroSuppressed"),
+        BottomBitsToIgnore = cms.uint32(0)
         )
 
 process.path = cms.Path(siStripDigis*process.siStripRepackVR*process.siStripUnpackRepackedVR*process.diffVR

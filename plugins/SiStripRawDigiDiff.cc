@@ -13,6 +13,7 @@ public:
 private:
   edm::EDGetTokenT<edm::DetSetVector<SiStripRawDigi>> m_digiAtoken;
   edm::EDGetTokenT<edm::DetSetVector<SiStripRawDigi>> m_digiBtoken;
+  uint16_t m_adcMask;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -29,6 +30,8 @@ SiStripRawDigiDiff::SiStripRawDigiDiff(const edm::ParameterSet& conf)
   const auto inTagB = conf.getParameter<edm::InputTag>("B");
   m_digiBtoken = consumes<edm::DetSetVector<SiStripRawDigi>>(inTagB);
   edm::LogInfo("SiStripRawDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB;
+  m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
+  edm::LogInfo("SiStripDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask;
 }
 
 void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSetup)
@@ -53,7 +56,7 @@ void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& e
         hasDiff = true;
       } else {
         for ( std::size_t i{0}; i != dsetA.size(); ++i ) {
-          if ( dsetA[i].adc() != dsetB[i].adc() ) {
+          if ( (dsetA[i].adc()&m_adcMask) != (dsetB[i].adc()&m_adcMask) ) {
             edm::LogWarning("SistripRawDigiDiff") << "Different ADC at index " << i << " for det " << dsetA.id << ": " << dsetA[i].adc() << " (A) versus " << dsetB[i].adc() << " (B)";
             hasDiff = true;
           }
