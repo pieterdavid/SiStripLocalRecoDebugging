@@ -60,7 +60,8 @@ repackedVRDigis = cms.InputTag("siStripUnpackRepackedVR", "VirginRaw")
 process.diffVR = cms.EDAnalyzer("SiStripRawDigiDiff",
         A = origVRDigis,
         B = repackedVRDigis,
-        BottomBitsToIgnore = cms.uint32(0)
+        BottomBitsToIgnore = cms.uint32(0),
+        nDiffToPrint=cms.untracked.uint64(10)
         )
 
 process.siStripRepackZS = cms.EDProducer("SiStripDigiToRawModule",

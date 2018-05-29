@@ -14,6 +14,7 @@ private:
   edm::EDGetTokenT<edm::DetSetVector<SiStripRawDigi>> m_digiAtoken;
   edm::EDGetTokenT<edm::DetSetVector<SiStripRawDigi>> m_digiBtoken;
   uint16_t m_adcMask;
+  std::size_t m_nDiffToPrint;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -31,7 +32,19 @@ SiStripRawDigiDiff::SiStripRawDigiDiff(const edm::ParameterSet& conf)
   m_digiBtoken = consumes<edm::DetSetVector<SiStripRawDigi>>(inTagB);
   edm::LogInfo("SiStripRawDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB;
   m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
-  edm::LogInfo("SiStripDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask;
+  edm::LogInfo("SiStripRawDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask;
+  m_nDiffToPrint = conf.getUntrackedParameter<unsigned long long>("nDiffToPrint", 0);
+}
+
+namespace {
+  std::string rawDigiListToString(const edm::DetSet<SiStripRawDigi>& digis)
+  {
+    std::stringstream out;
+    for ( auto digi : digis ) {
+      out << " " << std::hex << std::showbase << digi.adc() << std::dec;
+    }
+    return out.str();
+  }
 }
 
 void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSetup)
@@ -62,7 +75,15 @@ void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& e
           }
         }
       }
-      if ( ! hasDiff ) { ++goodMods; } else { ++diffMods; }
+      if ( ! hasDiff ) {
+        ++goodMods;
+      } else {
+        if ( diffMods < m_nDiffToPrint ) {
+          edm::LogInfo("SiStripRawDigiDiff") << "A digis: " << rawDigiListToString(dsetA);
+          edm::LogInfo("SiStripRawDigiDiff") << "B digis: " << rawDigiListToString(dsetB);
+        }
+        ++diffMods;
+      }
     }
   }
   for ( const auto& dsetB : *digisB ) {
