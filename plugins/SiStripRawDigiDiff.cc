@@ -15,6 +15,10 @@ private:
   edm::EDGetTokenT<edm::DetSetVector<SiStripRawDigi>> m_digiBtoken;
   uint16_t m_adcMask;
   std::size_t m_nDiffToPrint;
+  bool m_ignoreBadChannel;
+private:
+  // helper, return true if equal
+  bool compareDet(const edm::DetSet<SiStripRawDigi>& detA, const edm::DetSet<SiStripRawDigi>& detB) const;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -30,10 +34,12 @@ SiStripRawDigiDiff::SiStripRawDigiDiff(const edm::ParameterSet& conf)
   m_digiAtoken = consumes<edm::DetSetVector<SiStripRawDigi>>(inTagA);
   const auto inTagB = conf.getParameter<edm::InputTag>("B");
   m_digiBtoken = consumes<edm::DetSetVector<SiStripRawDigi>>(inTagB);
-  edm::LogInfo("SiStripRawDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB;
   m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
-  edm::LogInfo("SiStripRawDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask;
   m_nDiffToPrint = conf.getUntrackedParameter<unsigned long long>("nDiffToPrint", 0);
+  m_ignoreBadChannel = conf.getParameter<bool>("IgnoreBadChannels");
+  edm::LogInfo("SiStripRawDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB << "\n"
+    << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask
+    << (m_ignoreBadChannel?" and differences in trailing zeros (bad channels) will be ignored":"");
 }
 
 namespace {
@@ -47,35 +53,65 @@ namespace {
   }
 }
 
+bool SiStripRawDigiDiff::compareDet(const edm::DetSet<SiStripRawDigi>& detA, const edm::DetSet<SiStripRawDigi>& detB) const
+{
+  bool hasDiff{false};
+  if ( detB.size() != detA.size() ) {
+    if ( m_ignoreBadChannel ) { // accept as equal based on the common part if one has only zeros beyond that
+      if ( detA.size() < detB.size() ) {
+        if ( std::all_of(std::begin(detB)+detA.size(), std::end(detB), [] ( SiStripRawDigi digi ) { return digi.adc() == 0; }) ) {
+          edm::DetSet<SiStripRawDigi> detB_short{detB.id};
+          std::copy_n(std::begin(detB), detA.size(), std::back_inserter(detB_short));
+          hasDiff = ! compareDet(detA, detB_short);
+        } else {
+          hasDiff = true;
+        }
+      } else { // detA.size > detB.size
+        if ( std::all_of(std::begin(detA)+detB.size(), std::end(detA), [] ( SiStripRawDigi digi ) { return digi.adc() == 0; }) ) {
+          edm::DetSet<SiStripRawDigi> detA_short{detA.id};
+          std::copy_n(std::begin(detA), detB.size(), std::back_inserter(detA_short));
+          hasDiff = ! compareDet(detA_short, detB);
+        } else {
+          hasDiff = true;
+        }
+      }
+    } else {
+      edm::LogWarning("SiStripRawDigiDiff") << "Different number of raw digis for det " << detA.id << ": " << detA.size() << " (A) versus " << detB.size() << " (B)";
+      hasDiff = true;
+    }
+  } else {
+    for ( std::size_t i{0}; i != detA.size(); ++i ) {
+      if ( (detA[i].adc()&m_adcMask) != (detB[i].adc()&m_adcMask) ) {
+        edm::LogWarning("SistripRawDigiDiff") << "Different ADC at index " << i << " for det " << detA.id << ": " << detA[i].adc() << " (A) versus " << detB[i].adc() << " (B)";
+        hasDiff = true;
+      }
+    }
+  }
+  return ! hasDiff;
+}
+
 void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSetup)
 {
   edm::Handle<edm::DetSetVector<SiStripRawDigi>> digisA;
   evt.getByToken(m_digiAtoken, digisA);
   edm::Handle<edm::DetSetVector<SiStripRawDigi>> digisB;
   evt.getByToken(m_digiBtoken, digisB);
-  edm::LogInfo("SiStripRawDigiDiff") << "Loaded digis: " << digisA->size() << " (A) and " << digisB->size() << " (B)";
+  //edm::LogInfo("SiStripRawDigiDiff") << "Loaded digis: " << digisA->size() << " (A) and " << digisB->size() << " (B)";
   std::size_t goodMods{0}, diffMods{0};
   for ( const auto& dsetA : *digisA ) {
     const auto i_dsetB = digisB->find(dsetA.id);
     // A\B
     if ( digisB->end() == i_dsetB ) {
-      edm::LogWarning("SiStripRawDigiDiff") << "No DetSet in B for det " << dsetA.id << " that is in A";
-      ++diffMods;
+      if ( ! ( ( m_ignoreBadChannel ) && ( std::all_of(std::begin(dsetA), std::end(dsetA), [] ( SiStripRawDigi digi ) { return digi.adc() == 0; }) ) ) ) {
+        edm::LogWarning("SiStripRawDigiDiff") << "No DetSet in B for det " << dsetA.id << " that is in A";
+        if ( diffMods < m_nDiffToPrint ) {
+          edm::LogInfo("SiStripRawDigiDiff") << "A digis: " << rawDigiListToString(dsetA);
+        }
+        ++diffMods;
+      }
     } else { // A and B: compare
       const auto& dsetB = *i_dsetB;
-      bool hasDiff{false};
-      if ( dsetB.size() != dsetA.size() ) {
-        edm::LogWarning("SiStripRawDigiDiff") << "Different number of raw digis for det " << dsetA.id << ": " << dsetA.size() << " (A) versus " << dsetB.size() << " (B)";
-        hasDiff = true;
-      } else {
-        for ( std::size_t i{0}; i != dsetA.size(); ++i ) {
-          if ( (dsetA[i].adc()&m_adcMask) != (dsetB[i].adc()&m_adcMask) ) {
-            edm::LogWarning("SistripRawDigiDiff") << "Different ADC at index " << i << " for det " << dsetA.id << ": " << dsetA[i].adc() << " (A) versus " << dsetB[i].adc() << " (B)";
-            hasDiff = true;
-          }
-        }
-      }
-      if ( ! hasDiff ) {
+      if ( compareDet(dsetA, dsetB) ) {
         ++goodMods;
       } else {
         if ( diffMods < m_nDiffToPrint ) {
@@ -90,8 +126,13 @@ void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& e
     const auto i_dsetA = digisA->find(dsetB.id);
     // B\A
     if ( digisA->end() == i_dsetA ) {
-      edm::LogWarning("SiStripRawDigiDiff") << "No DetSet in A for det " << dsetB.id << " that is in B";
-      ++diffMods;
+      if ( ! ( ( m_ignoreBadChannel ) && ( std::all_of(std::begin(dsetB), std::end(dsetB), [] ( SiStripRawDigi digi ) { return digi.adc() == 0; }) ) ) ) {
+        edm::LogWarning("SiStripRawDigiDiff") << "No DetSet in A for det " << dsetB.id << " that is in B";
+        if ( diffMods < m_nDiffToPrint ) {
+          edm::LogInfo("SiStripRawDigiDiff") << "B digis: " << rawDigiListToString(dsetB);
+        }
+        ++diffMods;
+      }
     }
   }
   edm::LogInfo("SiStripRawDigiDiff") << "Found " << goodMods << " dets with identical raw digis and " << diffMods << " with differences";

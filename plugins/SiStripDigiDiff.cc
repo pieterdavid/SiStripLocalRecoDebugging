@@ -34,11 +34,12 @@ SiStripDigiDiff::SiStripDigiDiff(const edm::ParameterSet& conf)
   m_digiAtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagA);
   const auto inTagB = conf.getParameter<edm::InputTag>("B");
   m_digiBtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagB);
-  edm::LogInfo("SiStripDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB;
   m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
   m_nDiffToPrint = conf.getUntrackedParameter<unsigned long long>("nDiffToPrint", 0);
   m_ignoreAllZeros = conf.getParameter<bool>("IgnoreAllZeros");
-  edm::LogInfo("SiStripDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask << ( m_ignoreAllZeros ? " and removing zero digis" : "");
+  edm::LogInfo("SiStripDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB << "\n"
+    << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask
+    << ( m_ignoreAllZeros ? " and removing zero digis" : "");
 }
 
 namespace {
@@ -78,7 +79,7 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
   evt.getByToken(m_digiAtoken, digisA);
   edm::Handle<edm::DetSetVector<SiStripDigi>> digisB;
   evt.getByToken(m_digiBtoken, digisB);
-  edm::LogInfo("SiStripDigiDiff") << "Loaded digis: " << digisA->size() << " (A) and " << digisB->size() << " (B)";
+  //edm::LogInfo("SiStripDigiDiff") << "Loaded digis: " << digisA->size() << " (A) and " << digisB->size() << " (B)";
   std::size_t goodMods{0}, diffMods{0};
   for ( const auto& dsetA : *digisA ) {
     const auto i_dsetB = digisB->find(dsetA.id);
