@@ -14,6 +14,11 @@ private:
   edm::EDGetTokenT<edm::DetSetVector<SiStripDigi>> m_digiAtoken;
   edm::EDGetTokenT<edm::DetSetVector<SiStripDigi>> m_digiBtoken;
   uint16_t m_adcMask;
+  std::size_t m_nDiffToPrint;
+  bool m_ignoreAllZeros;
+private:
+  // helper, return true if equal
+  bool compareDet(const edm::DetSet<SiStripDigi>& detA, const edm::DetSet<SiStripDigi>& detB) const;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -31,7 +36,40 @@ SiStripDigiDiff::SiStripDigiDiff(const edm::ParameterSet& conf)
   m_digiBtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagB);
   edm::LogInfo("SiStripDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB;
   m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
-  edm::LogInfo("SiStripDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask;
+  m_nDiffToPrint = conf.getUntrackedParameter<unsigned long long>("nDiffToPrint", 0);
+  m_ignoreAllZeros = conf.getParameter<bool>("IgnoreAllZeros");
+  edm::LogInfo("SiStripDigiDiff") << "ADCs will be compared after applying the mask " << std::hex << std::showbase << m_adcMask << ( m_ignoreAllZeros ? " and removing zero digis" : "");
+}
+
+namespace {
+  std::string digiListToString(const edm::DetSet<SiStripDigi>& digis)
+  {
+    std::stringstream out;
+    for ( auto digi : digis ) {
+      out << " (" << digi.strip() << "," << std::hex << std::showbase << digi.adc() << std::dec << ")";
+    }
+    return out.str();
+  }
+}
+
+bool SiStripDigiDiff::compareDet(const edm::DetSet<SiStripDigi>& detA, const edm::DetSet<SiStripDigi>& detB) const
+{
+  bool hasDiff{false};
+  if ( detB.size() != detA.size() ) {
+    edm::LogWarning("SiStripDigiDiff") << "Different number of digis for det " << detA.id << ": " << detA.size() << " (A) versus " << detB.size() << " (B)";
+    hasDiff = true;
+  } else {
+    for ( std::size_t i{0}; i != detA.size(); ++i ) {
+      if ( detA[i].strip() != detB[i].strip() ) {
+        edm::LogWarning("SiStripDigiDiff") << "ADC for different strip at index " << i << " for det " << detA.id << ": " << detA[i].strip() << "," << detA[i].adc() << " (A) versus " << detB[i].strip() << "," << detB[i].adc() << " (B)";
+        hasDiff = true;
+      } else if ( (detA[i].adc()&m_adcMask) != (detB[i].adc()&m_adcMask) ) {
+        edm::LogWarning("SiStripDigiDiff") << "Different ADC for strip " << detA[i].strip() << " in det " << detA.id << ": " << detA[i].adc() << " (A) versus " << detB[i].adc() << " (B)";
+        hasDiff = true;
+      }
+    }
+  }
+  return ! hasDiff;
 }
 
 void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSetup)
@@ -49,23 +87,28 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
       edm::LogWarning("SiStripDigiDiff") << "No DetSet in B for det " << dsetA.id << " that is in A";
       ++diffMods;
     } else { // A and B: compare
-      bool hasDiff{false};
       const auto& dsetB = *i_dsetB;
-      if ( dsetB.size() != dsetA.size() ) {
-        edm::LogWarning("SiStripDigiDiff") << "Different number of raw digis for det " << dsetA.id << ": " << dsetA.size() << " (A) versus " << dsetB.size() << " (B)";
-        hasDiff = true;
+      bool areEqual;
+      if ( m_ignoreAllZeros ) {
+        // work around an incompatibility between SiStripFedZeroSuppression and SiStripRawToDigi
+        // the former allows some zero Digis (if part of a cluster), the latter removes all zeros
+        edm::DetSet<SiStripDigi> dsetA_noz{dsetA.id};
+        std::copy_if(std::begin(dsetA), std::end(dsetA), std::back_inserter(dsetA_noz), [] ( SiStripDigi digi ) { return digi.adc() != 0; });
+        edm::DetSet<SiStripDigi> dsetB_noz{dsetB.id};
+        std::copy_if(std::begin(dsetB), std::end(dsetB), std::back_inserter(dsetB_noz), [] ( SiStripDigi digi ) { return digi.adc() != 0; });
+        areEqual = compareDet(dsetA_noz, dsetB_noz);
       } else {
-        for ( std::size_t i{0}; i != dsetA.size(); ++i ) {
-          if ( dsetA[i].strip() != dsetB[i].strip() ) {
-            edm::LogWarning("SistripDigiDiff") << "ADC for different strip at index " << i << " for det " << dsetA.id << ": " << dsetA[i].strip() << "," << dsetA[i].adc() << " (A) versus " << dsetB[i].strip() << "," << dsetB[i].adc() << " (B)";
-            hasDiff = true;
-          } else if ( (dsetA[i].adc()&m_adcMask) != (dsetB[i].adc()&m_adcMask) ) {
-            edm::LogWarning("SistripDigiDiff") << "Different ADC for strip " << dsetA[i].strip() << " in det " << dsetA.id << ": " << dsetA[i].adc() << " (A) versus " << dsetB[i].adc() << " (B)";
-            hasDiff = true;
-          }
-        }
+        areEqual = compareDet(dsetA, dsetB);
       }
-      if ( ! hasDiff ) { ++goodMods; } else { ++diffMods; }
+      if ( areEqual ) {
+        ++goodMods;
+      } else {
+        if ( diffMods < m_nDiffToPrint ) {
+          edm::LogInfo("SiStripDigiDiff") << "A digis: " << digiListToString(dsetA);
+          edm::LogInfo("SiStripDigiDiff") << "B digis: " << digiListToString(dsetB);
+        }
+        ++diffMods;
+      }
     }
   }
   for ( const auto& dsetB : *digisB ) {
@@ -76,5 +119,5 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
       ++diffMods;
     }
   }
-  edm::LogInfo("SiStripDigiDiff") << "Found " << goodMods << " dets with identical raw digis and " << diffMods << " with differences";
+  edm::LogInfo("SiStripDigiDiff") << "Found " << goodMods << " dets with identical digis and " << diffMods << " with differences";
 }
