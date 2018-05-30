@@ -92,9 +92,9 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
         // work around an incompatibility between SiStripFedZeroSuppression and SiStripRawToDigi
         // the former allows some zero Digis (if part of a cluster), the latter removes all zeros
         edm::DetSet<SiStripDigi> dsetA_noz{dsetA.id};
-        std::copy_if(std::begin(dsetA), std::end(dsetA), std::back_inserter(dsetA_noz), [] ( SiStripDigi digi ) { return digi.adc() != 0; });
+        std::copy_if(std::begin(dsetA), std::end(dsetA), std::back_inserter(dsetA_noz), [this] ( SiStripDigi digi ) { return (digi.adc()&m_adcMask) != 0; });
         edm::DetSet<SiStripDigi> dsetB_noz{dsetB.id};
-        std::copy_if(std::begin(dsetB), std::end(dsetB), std::back_inserter(dsetB_noz), [] ( SiStripDigi digi ) { return digi.adc() != 0; });
+        std::copy_if(std::begin(dsetB), std::end(dsetB), std::back_inserter(dsetB_noz), [this] ( SiStripDigi digi ) { return (digi.adc()&m_adcMask) != 0; });
         areEqual = compareDet(dsetA_noz, dsetB_noz);
       } else {
         areEqual = compareDet(dsetA, dsetB);
