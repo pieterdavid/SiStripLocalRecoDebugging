@@ -61,11 +61,7 @@ bool SiStripDigiDiff::compareDet(const edm::DetSet<SiStripDigi>& detA, const edm
     hasDiff = true;
   } else {
     for ( std::size_t i{0}; i != detA.size(); ++i ) {
-      if ( detA[i].strip() != detB[i].strip() ) {
-        edm::LogWarning("SiStripDigiDiff") << "ADC for different strip at index " << i << " for det " << detA.id << ": " << detA[i].strip() << "," << detA[i].adc() << " (A) versus " << detB[i].strip() << "," << detB[i].adc() << " (B)";
-        hasDiff = true;
-      } else if ( (detA[i].adc()&m_adcMask) != (detB[i].adc()&m_adcMask) ) {
-        edm::LogWarning("SiStripDigiDiff") << "Different ADC for strip " << detA[i].strip() << " in det " << detA.id << ": " << detA[i].adc() << " (A) versus " << detB[i].adc() << " (B)";
+      if ( ( detA[i].strip() != detB[i].strip() ) || ( (detA[i].adc()&m_adcMask) != (detB[i].adc()&m_adcMask) ) ) {
         hasDiff = true;
       }
     }

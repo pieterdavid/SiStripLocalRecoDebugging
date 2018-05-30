@@ -76,13 +76,14 @@ bool SiStripRawDigiDiff::compareDet(const edm::DetSet<SiStripRawDigi>& detA, con
         }
       }
     } else {
-      edm::LogWarning("SiStripRawDigiDiff") << "Different number of raw digis for det " << detA.id << ": " << detA.size() << " (A) versus " << detB.size() << " (B)";
       hasDiff = true;
+    }
+    if ( hasDiff ) {
+      edm::LogWarning("SiStripRawDigiDiff") << "Different number of raw digis for det " << detA.id << ": " << detA.size() << " (A) versus " << detB.size() << " (B)";
     }
   } else {
     for ( std::size_t i{0}; i != detA.size(); ++i ) {
       if ( (detA[i].adc()&m_adcMask) != (detB[i].adc()&m_adcMask) ) {
-        edm::LogWarning("SistripRawDigiDiff") << "Different ADC at index " << i << " for det " << detA.id << ": " << detA[i].adc() << " (A) versus " << detB[i].adc() << " (B)";
         hasDiff = true;
       }
     }
