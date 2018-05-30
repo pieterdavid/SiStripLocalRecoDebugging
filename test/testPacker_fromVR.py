@@ -61,6 +61,7 @@ process.diffVR = cms.EDAnalyzer("SiStripRawDigiDiff",
         A = origVRDigis,
         B = repackedVRDigis,
         BottomBitsToIgnore = cms.uint32(0),
+        TopBitsToIgnore = cms.uint32(0),
         nDiffToPrint=cms.untracked.uint64(10),
         IgnoreBadChannels=cms.bool(True)
         )
@@ -80,6 +81,7 @@ process.diffZS = cms.EDAnalyzer("SiStripDigiDiff",
         A = cms.InputTag("siStripZeroSuppression", "VirginRaw"),
         B = cms.InputTag("siStripUnpackRepackedZS", "ZeroSuppressed"),
         BottomBitsToIgnore = cms.uint32(0),
+        TopBitsToIgnore = cms.uint32(0),
         nDiffToPrint=cms.untracked.uint64(10),
         IgnoreAllZeros=cms.bool(True) ## workaround for packer removing all zero strips for ZS
         )

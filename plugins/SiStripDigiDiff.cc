@@ -34,7 +34,9 @@ SiStripDigiDiff::SiStripDigiDiff(const edm::ParameterSet& conf)
   m_digiAtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagA);
   const auto inTagB = conf.getParameter<edm::InputTag>("B");
   m_digiBtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagB);
-  m_adcMask = 0x03FF & (~((1<<conf.getParameter<uint32_t>("BottomBitsToIgnore"))-1)); // at most 10, ignore N
+  const uint32_t bbIg = conf.getParameter<uint32_t>("BottomBitsToIgnore");
+  const uint32_t tbIg = conf.getParameter<uint32_t>("TopBitsToIgnore");
+  m_adcMask = ((1<<(10-tbIg-bbIg))-1) << bbIg;
   m_nDiffToPrint = conf.getUntrackedParameter<unsigned long long>("nDiffToPrint", 0);
   m_ignoreAllZeros = conf.getParameter<bool>("IgnoreAllZeros");
   edm::LogInfo("SiStripDigiDiff") << "Loading digis from (A) " << inTagA << " and (B) " << inTagB << "\n"
