@@ -15,7 +15,7 @@ process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(1)
+    input = cms.untracked.int32(5)
 )
 
 # Input source
@@ -39,7 +39,7 @@ from RecoLocalTracker.SiStripZeroSuppression.SiStripZeroSuppression_cfi import s
 ##process.load('RecoLocalTracker.Configuration.RecoLocalTracker_cff')
 ##from RecoLocalTracker.Configuration.RecoLocalTracker_cff import trackerlocalreco, striptrackerlocalreco, siStripZeroSuppression, siStripClusters, siStripMatchedRecHits
 
-# siStripDigis.FedEventDumpFreq = cms.untracked.int32(1) ## dump all FED events - HUGE
+##siStripDigis.FedEventDumpFreq = cms.untracked.int32(1) ## dump all FED events - HUGE
 ## siStripZeroSuppression
 
 origVRDigis = cms.InputTag("siStripDigis", "VirginRaw")
@@ -47,7 +47,7 @@ origVRDigis = cms.InputTag("siStripDigis", "VirginRaw")
 process.siStripRepackVR = cms.EDProducer("SiStripDigiToRawModule",
         InputDigis       = origVRDigis,
         FedReadoutMode   = cms.string('Virgin raw'),
-        PacketCode       = cms.string("Virgin raw"),
+        ## PacketCode is set below
         UseFedKey        = cms.bool(False),
         UseWrongDigiType = cms.bool(False),
         CopyBufferHeader = cms.bool(False),
@@ -60,15 +60,15 @@ repackedVRDigis = cms.InputTag("siStripUnpackRepackedVR", "VirginRaw")
 process.diffVR = cms.EDAnalyzer("SiStripRawDigiDiff",
         A = origVRDigis,
         B = repackedVRDigis,
-        BottomBitsToIgnore = cms.uint32(0),
-        TopBitsToIgnore = cms.uint32(0),
         nDiffToPrint=cms.untracked.uint64(10),
-        IgnoreBadChannels=cms.bool(True)
+        IgnoreBadChannels=cms.bool(True),
+        TopBitsToIgnore = cms.uint32(0),
+        BottomBitsToIgnore = cms.uint32(0),
         )
 
 process.siStripRepackZS = cms.EDProducer("SiStripDigiToRawModule",
         InputDigis       = cms.InputTag("siStripZeroSuppression", "VirginRaw"),
-        FedReadoutMode   = cms.string('ZERO_SUPPRESSED'),
+        ## FedReadoutMode and PacketCode set below
         UseFedKey        = cms.bool(False),
         UseWrongDigiType = cms.bool(False),
         CopyBufferHeader = cms.bool(False),
@@ -80,11 +80,54 @@ process.siStripUnpackRepackedZS = siStripDigis.clone(
 process.diffZS = cms.EDAnalyzer("SiStripDigiDiff",
         A = cms.InputTag("siStripZeroSuppression", "VirginRaw"),
         B = cms.InputTag("siStripUnpackRepackedZS", "ZeroSuppressed"),
-        BottomBitsToIgnore = cms.uint32(0),
-        TopBitsToIgnore = cms.uint32(0),
         nDiffToPrint=cms.untracked.uint64(10),
-        IgnoreAllZeros=cms.bool(True) ## workaround for packer removing all zero strips for ZS
+        IgnoreAllZeros=cms.bool(True), ## workaround for packer removing all zero strips for ZS
+        TopBitsToIgnore = cms.uint32(0),
+        BottomBitsToIgnore = cms.uint32(0),
         )
+
+### SWITCH THE MODES HERE
+vrToTest = "10"
+
+if vrToTest == "16":
+    process.siStripRepackVR.PacketCode = cms.string("VIRGIN_RAW")
+elif vrToTest == "8BOTBOT":
+    process.siStripRepackVR.PacketCode = cms.string("VIRGIN_RAW8_BOTBOT")
+    process.diffVR.BottomBitsToIgnore = cms.uint32(2)
+elif vrToTest == "8TOPBOT":
+    process.siStripRepackVR.PacketCode = cms.string("VIRGIN_RAW8_TOPBOT")
+    process.diffVR.TopBitsToIgnore = cms.uint32(1)
+    process.diffVR.BottomBitsToIgnore = cms.uint32(1)
+elif vrToTest == "10":
+    process.siStripRepackVR.PacketCode = cms.string("VIRGIN_RAW10")
+
+zsToTest = "lite10"
+if zsToTest == "8":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed")
+    process.siStripRepackZS.PacketCode = cms.string("ZERO_SUPPRESSED")
+elif zsToTest == "8BOTBOT":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed")
+    process.siStripRepackZS.PacketCode = cms.string("ZERO_SUPPRESSED8_BOTBOT")
+    process.diffZS.BottomBitsToIgnore = cms.uint32(2)
+elif zsToTest == "8TOPBOT":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed")
+    process.siStripRepackZS.PacketCode = cms.string("ZERO_SUPPRESSED8_TOPBOT")
+    process.diffZS.TopBitsToIgnore = cms.uint32(1)
+    process.diffZS.BottomBitsToIgnore = cms.uint32(1)
+elif zsToTest == "10":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed")
+    process.siStripRepackZS.PacketCode = cms.string("ZERO_SUPPRESSED10")
+elif zsToTest == "lite8":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed lite8")
+elif zsToTest == "lite8BOTBOT":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed lite8 BotBot")
+    process.diffZS.BottomBitsToIgnore = cms.uint32(2)
+elif zsToTest == "lite8TOPBOT":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed lite8 TopBot")
+    process.diffZS.TopBitsToIgnore = cms.uint32(1)
+    process.diffZS.BottomBitsToIgnore = cms.uint32(1)
+elif zsToTest == "lite10":
+    process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed lite10")
 
 process.path = cms.Path(siStripDigis*process.siStripRepackVR*process.siStripUnpackRepackedVR*process.diffVR
         *siStripZeroSuppression*process.siStripRepackZS*process.siStripUnpackRepackedZS*process.diffZS)
