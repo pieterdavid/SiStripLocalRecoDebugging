@@ -1,3 +1,13 @@
+from FWCore.ParameterSet.VarParsing import VarParsing
+options = VarParsing()
+options.register("nEvents", 5, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Events to process")
+options.register("testVR", "", VarParsing.multiplicity.singleton, VarParsing.varType.string, "Virgin raw mode to test(16, 8BOTBOT, 8TOPBOT or 10)")
+options.register("testZS", "", VarParsing.multiplicity.singleton, VarParsing.varType.string, "Zero-suppressed mode to test(8, 8BOTBOT, 8TOPBOT, 10, lite8, lite8BOTBOT, lite8TOPBOT, lite10)")
+options.parseArguments()
+
+vrToTest = options.testVR
+zsToTest = options.testZS
+
 import FWCore.ParameterSet.Config as cms
 uc = cms.untracked
 
@@ -14,17 +24,17 @@ process.load('Configuration.StandardSequences.MagneticField_AutoFromDBCurrent_cf
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
-process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(5)
+process.maxEvents = uc.PSet(
+    input = uc.int32(options.nEvents)
 )
 
 # Input source
 process.source = cms.Source("PoolSource",
-    fileNames=cms.untracked.vstring(
+    fileNames=uc.vstring(
         ## 2018 VR
           "/store/hidata/HIRun2015/HITrackerVirginRaw/RAW/v1/000/263/400/00000/40322926-4AA3-E511-95F7-02163E0146A8.root"
         ),
-    secondaryFileNames = cms.untracked.vstring()
+    secondaryFileNames = uc.vstring()
 )
 
 # Other statements
@@ -39,7 +49,7 @@ from RecoLocalTracker.SiStripZeroSuppression.SiStripZeroSuppression_cfi import s
 ##process.load('RecoLocalTracker.Configuration.RecoLocalTracker_cff')
 ##from RecoLocalTracker.Configuration.RecoLocalTracker_cff import trackerlocalreco, striptrackerlocalreco, siStripZeroSuppression, siStripClusters, siStripMatchedRecHits
 
-##siStripDigis.FedEventDumpFreq = cms.untracked.int32(1) ## dump all FED events - HUGE
+##siStripDigis.FedEventDumpFreq = uc.int32(1) ## dump all FED events - HUGE
 ## siStripZeroSuppression
 
 origVRDigis = cms.InputTag("siStripDigis", "VirginRaw")
@@ -47,7 +57,7 @@ origVRDigis = cms.InputTag("siStripDigis", "VirginRaw")
 process.siStripRepackVR = cms.EDProducer("SiStripDigiToRawModule",
         InputDigis       = origVRDigis,
         FedReadoutMode   = cms.string('Virgin raw'),
-        ## PacketCode is set below
+        PacketCode       = cms.string(""), ## PacketCode is actually set below
         UseFedKey        = cms.bool(False),
         UseWrongDigiType = cms.bool(False),
         CopyBufferHeader = cms.bool(False),
@@ -60,7 +70,7 @@ repackedVRDigis = cms.InputTag("siStripUnpackRepackedVR", "VirginRaw")
 process.diffVR = cms.EDAnalyzer("SiStripRawDigiDiff",
         A = origVRDigis,
         B = repackedVRDigis,
-        nDiffToPrint=cms.untracked.uint64(10),
+        nDiffToPrint=uc.uint64(10),
         IgnoreBadChannels=cms.bool(True),
         TopBitsToIgnore = cms.uint32(0),
         BottomBitsToIgnore = cms.uint32(0),
@@ -69,6 +79,7 @@ process.diffVR = cms.EDAnalyzer("SiStripRawDigiDiff",
 process.siStripRepackZS = cms.EDProducer("SiStripDigiToRawModule",
         InputDigis       = cms.InputTag("siStripZeroSuppression", "VirginRaw"),
         ## FedReadoutMode and PacketCode set below
+        PacketCode       = cms.string(""), ## PacketCode is actually set below
         UseFedKey        = cms.bool(False),
         UseWrongDigiType = cms.bool(False),
         CopyBufferHeader = cms.bool(False),
@@ -80,15 +91,13 @@ process.siStripUnpackRepackedZS = siStripDigis.clone(
 process.diffZS = cms.EDAnalyzer("SiStripDigiDiff",
         A = cms.InputTag("siStripZeroSuppression", "VirginRaw"),
         B = cms.InputTag("siStripUnpackRepackedZS", "ZeroSuppressed"),
-        nDiffToPrint=cms.untracked.uint64(10),
+        nDiffToPrint=uc.uint64(10),
         IgnoreAllZeros=cms.bool(True), ## workaround for packer removing all zero strips for ZS
         TopBitsToIgnore = cms.uint32(0),
         BottomBitsToIgnore = cms.uint32(0),
         )
 
 ### SWITCH THE MODES HERE
-vrToTest = "10"
-
 if vrToTest == "16":
     process.siStripRepackVR.PacketCode = cms.string("VIRGIN_RAW")
 elif vrToTest == "8BOTBOT":
@@ -101,7 +110,6 @@ elif vrToTest == "8TOPBOT":
 elif vrToTest == "10":
     process.siStripRepackVR.PacketCode = cms.string("VIRGIN_RAW10")
 
-zsToTest = "lite10"
 if zsToTest == "8":
     process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed")
     process.siStripRepackZS.PacketCode = cms.string("ZERO_SUPPRESSED")
@@ -129,20 +137,30 @@ elif zsToTest == "lite8TOPBOT":
 elif zsToTest == "lite10":
     process.siStripRepackZS.FedReadoutMode = cms.string("Zero suppressed lite10")
 
-process.path = cms.Path(siStripDigis*process.siStripRepackVR*process.siStripUnpackRepackedVR*process.diffVR
-        *siStripZeroSuppression*process.siStripRepackZS*process.siStripUnpackRepackedZS*process.diffZS)
+seq = siStripDigis
+if vrToTest:
+    print "Packet code : ", process.siStripRepackVR.PacketCode
+    seq = seq*process.siStripRepackVR*process.siStripUnpackRepackedVR*process.diffVR
+if zsToTest:
+    print "Readout mode: ", process.siStripRepackZS.FedReadoutMode
+    print "Packet code : ", process.siStripRepackZS.PacketCode
+    seq = seq*siStripZeroSuppression*process.siStripRepackZS*process.siStripUnpackRepackedZS*process.diffZS
+process.path = cms.Path(seq)
+
+#process.path = cms.Path(siStripDigis*process.siStripRepackVR*process.siStripUnpackRepackedVR*process.diffVR
+#        *siStripZeroSuppression*process.siStripRepackZS*process.siStripUnpackRepackedZS*process.diffZS)
 
 process.MessageLogger = cms.Service(
     "MessageLogger",
-    destinations = cms.untracked.vstring(
+    destinations = uc.vstring(
         "detailedInfo",
         "critical"
         ),
-    detailedInfo = cms.untracked.PSet(
-        threshold = cms.untracked.string("DEBUG")
+    detailedInfo = uc.PSet(
+        threshold = uc.string("DEBUG")
         ),
-    #debugModules = cms.untracked.vstring("siStripDigis", "siStripRepackVR", "siStripUnpackRepackedVR"),
-    #categories=cms.untracked.vstring("SiStripRawToDigiModule", "SiStripDigiToRawModule", "SiStripDigiToRaw")
-    ##debugModules = cms.untracked.vstring("siStripZeroSuppression"),
-    ##categories=cms.untracked.vstring("SiStripZeroSuppression")
+    ##debugModules = uc.vstring("siStripUnpackRepackedZS"),#, "siStripRepackVR", "siStripUnpackRepackedVR"),
+    ##categories=uc.vstring("SiStripRawToDigiModule")#, "SiStripDigiToRawModule", "SiStripDigiToRaw")
+    ##debugModules = uc.vstring("siStripZeroSuppression"),
+    ##categories=uc.vstring("SiStripZeroSuppression")
     )
