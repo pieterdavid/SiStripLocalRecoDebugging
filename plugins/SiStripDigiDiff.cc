@@ -13,11 +13,19 @@ public:
 private:
   edm::EDGetTokenT<edm::DetSetVector<SiStripDigi>> m_digiAtoken;
   edm::EDGetTokenT<edm::DetSetVector<SiStripDigi>> m_digiBtoken;
+  uint16_t m_maxValue = 0;
   uint16_t m_adcMask;
   std::size_t m_nDiffToPrint;
   bool m_ignoreAllZeros;
 private:
   // helper, return true if equal
+  inline uint16_t maskADC(uint16_t adc) const
+  {
+    if ( m_maxValue ) { // truncate
+      adc = std::min(adc, m_maxValue);
+    }
+    return adc & m_adcMask; // mask
+  }
   bool compareDet(const edm::DetSet<SiStripDigi>& detA, const edm::DetSet<SiStripDigi>& detB) const;
 };
 
@@ -36,6 +44,9 @@ SiStripDigiDiff::SiStripDigiDiff(const edm::ParameterSet& conf)
   m_digiBtoken = consumes<edm::DetSetVector<SiStripDigi>>(inTagB);
   const uint32_t bbIg = conf.getParameter<uint32_t>("BottomBitsToIgnore");
   const uint32_t tbIg = conf.getParameter<uint32_t>("TopBitsToIgnore");
+  if ( ( bbIg == 0 ) && ( tbIg == 0 ) ) { // 10 bits truncation
+    m_maxValue = (1<<10)-1;
+  }
   m_adcMask = ((1<<(10-tbIg-bbIg))-1) << bbIg;
   m_nDiffToPrint = conf.getUntrackedParameter<unsigned long long>("nDiffToPrint", 0);
   m_ignoreAllZeros = conf.getParameter<bool>("IgnoreAllZeros");
@@ -63,7 +74,7 @@ bool SiStripDigiDiff::compareDet(const edm::DetSet<SiStripDigi>& detA, const edm
     hasDiff = true;
   } else {
     for ( std::size_t i{0}; i != detA.size(); ++i ) {
-      if ( ( detA[i].strip() != detB[i].strip() ) || ( (detA[i].adc()&m_adcMask) != (detB[i].adc()&m_adcMask) ) ) {
+      if ( ( detA[i].strip() != detB[i].strip() ) || ( maskADC(detA[i].adc()) != maskADC(detB[i].adc()) ) ) {
         hasDiff = true;
       }
     }
@@ -92,9 +103,9 @@ void SiStripDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSet
         // work around an incompatibility between SiStripFedZeroSuppression and SiStripRawToDigi
         // the former allows some zero Digis (if part of a cluster), the latter removes all zeros
         edm::DetSet<SiStripDigi> dsetA_noz{dsetA.id};
-        std::copy_if(std::begin(dsetA), std::end(dsetA), std::back_inserter(dsetA_noz), [this] ( SiStripDigi digi ) { return (digi.adc()&m_adcMask) != 0; });
+        std::copy_if(std::begin(dsetA), std::end(dsetA), std::back_inserter(dsetA_noz), [this] ( SiStripDigi digi ) { return maskADC(digi.adc()) != 0; });
         edm::DetSet<SiStripDigi> dsetB_noz{dsetB.id};
-        std::copy_if(std::begin(dsetB), std::end(dsetB), std::back_inserter(dsetB_noz), [this] ( SiStripDigi digi ) { return (digi.adc()&m_adcMask) != 0; });
+        std::copy_if(std::begin(dsetB), std::end(dsetB), std::back_inserter(dsetB_noz), [this] ( SiStripDigi digi ) { return maskADC(digi.adc()) != 0; });
         areEqual = compareDet(dsetA_noz, dsetB_noz);
       } else {
         areEqual = compareDet(dsetA, dsetB);
