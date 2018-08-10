@@ -8,6 +8,6 @@ done
 
 echo "---> Testing ZS(lite) packing on 5 events"
 for zsMode in "8" "8BOTBOT" "8TOPBOT" "10" "lite8" "lite8BOTBOT" "lite8TOPBOT" "lite10"; do
-  cmsRun test/testPacker_fromVR.py "testZS=${zsMode}" nEvents=5
+  cmsRun test/testPacker_fromVR_withHybrid.py "testZS=${zsMode}" nEvents=5
   grep -A2 SiStripDigiDiff "detailedInfo.log" | grep --color=never "Found"
 done
