@@ -160,15 +160,15 @@ process.diffRepackedZS = cms.EDAnalyzer("SiStripDigiDiff",
         BottomBitsToIgnore = cms.uint32(1),
         )
 process.digiStatDiff = cms.EDAnalyzer("SiStripDigiStatsDiff",
-        A = cms.InputTag("unpackRepackedZS1", "ZeroSuppressed"),
-        B = cms.InputTag("unpackRepackedZS2", "ZeroSuppressed"),
+        A = cms.InputTag("unpackRepackedZS2", "ZeroSuppressed"),
+        B = cms.InputTag("unpackRepackedZS1", "ZeroSuppressed"),
         )
 process.load("RecoLocalTracker.SiStripClusterizer.SiStripClusterizer_RealData_cfi")
 process.clusterizeRepackedZS1 = process.siStripClusters.clone(DigiProducersList=cms.VInputTag(cms.InputTag("unpackRepackedZS1", "ZeroSuppressed")))
 process.clusterizeRepackedZS2 = process.siStripClusters.clone(DigiProducersList=cms.VInputTag(cms.InputTag("unpackRepackedZS2", "ZeroSuppressed")))
 process.clusterStatDiff = cms.EDAnalyzer("SiStripClusterStatsDiff",
-        A = cms.InputTag("clusterizeRepackedZS1"),
-        B = cms.InputTag("clusterizeRepackedZS2"),
+        A = cms.InputTag("clusterizeRepackedZS2"),
+        B = cms.InputTag("clusterizeRepackedZS1"),
         )
 process.DigiToRawRepack = cms.Sequence(
         process.siStripZeroSuppression * process.SiStripDigiToZSRaw * process.rawDataRepacker *

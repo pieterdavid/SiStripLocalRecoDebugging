@@ -19,10 +19,11 @@ def addOverflows(histo):
 if __name__ == "__main__":
     _gbl = set()
     hFile = ROOT.TFile.Open("diffhistos.root", "READ")
-    refSuffix = "B"
-    newSuffix = "A"
+    refSuffix = "A"
+    newSuffix = "B"
     outpath = "comparisonPlots"
-    histoList = ["digiStatDiff/nDigis", "clusterStatDiff/nClus"]
+    histoList = ["digiStatDiff/nDigis", "clusterStatDiff/nClus",
+            "clusterStatDiff/clusCharge", "clusterStatDiff/clusWidth", "clusterStatDiff/clusBary", "clusterStatDiff/clusVar"]
     for hName in histoList:
         hName_n = hName.replace("/", "_")
         hRef = hFile.Get(hName+refSuffix)
@@ -52,17 +53,21 @@ if __name__ == "__main__":
                 fig,ax = plt.subplots(1,2,num=hName+"Diff")
                 ax[0].semilogy()
                 ax[0].rhist(hDiff   , histtype="step", color="k")
+                ax[0].set_xlim(hDiff.GetXaxis().GetXmin(), hDiff.GetXaxis().GetXmax())
                 ax[1].semilogy()
                 ax[1].rhist(hRelDiff, histtype="step", color="k")
+                ax[1].set_xlim(hRelDiff.GetXaxis().GetXmin(), hRelDiff.GetXaxis().GetXmax())
             else:
                 fig,ax = plt.subplots(num=hName+"Diff")
                 ax.semilogy()
                 if hDiff:
                     addOverflows(hDiff)
                     ax.rhist(hDiff, histtype="step", color="k")
+                    ax.rhist(hDiff   , histtype="step", color="k")
                 elif hrelDiff:
                     addOverflows(hRelDiff)
                     ax.rhist(hRelDiff, histtype="step", color="k")
+                    ax.set_xlim(hRelDiff.GetXaxis().GetXmin(), hRelDiff.GetXaxis().GetXmax())
             fig.savefig("plot{0}Diff.pdf".format(hName_n))
     ##
     plt.show()

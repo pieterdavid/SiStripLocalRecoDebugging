@@ -17,6 +17,7 @@ private:
   edm::EDGetTokenT<edmNew::DetSetVector<SiStripCluster>> m_digiAtoken;
   edm::EDGetTokenT<edmNew::DetSetVector<SiStripCluster>> m_digiBtoken;
   TH1F* h_nClusA, * h_nClusB, * h_nClusDiff, * h_nClusRelDiff;
+  TH1F *h_clusChargeA, *h_clusChargeB, *h_clusWidthA, *h_clusWidthB, *h_clusBaryA, *h_clusBaryB, *h_clusVarA, *h_clusVarB;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -38,6 +39,15 @@ SiStripClusterStatsDiff::SiStripClusterStatsDiff(const edm::ParameterSet& conf)
   h_nClusB = fs->make<TH1F>("nClusB", ("nClus per module in collection "+inTagB.encode()).c_str(), 100, 0., 100.);
   h_nClusDiff = fs->make<TH1F>("nClusDiff", ("Differences in nClus per module between the collections "+inTagA.encode()+" and "+inTagB.encode()).c_str(), 40, -20., 20.);
   h_nClusRelDiff = fs->make<TH1F>("nClusRelDiff", ("Relative ifferences in nClus per module between the collections "+inTagA.encode()+" and "+inTagB.encode()+" (B-A)").c_str(), 100, -.05, .05);
+  //
+  h_clusChargeA = fs->make<TH1F>("clusChargeA", ("Cluster width in collection "+inTagA.encode()).c_str(), 125, 0., 5000.);
+  h_clusChargeB = fs->make<TH1F>("clusChargeB", ("Cluster width in collection "+inTagB.encode()).c_str(), 125, 0., 5000.);
+  h_clusWidthA = fs->make<TH1F>("clusWidthA", ("Cluster width in collection "+inTagA.encode()).c_str(), 125, 0., 125.);
+  h_clusWidthB = fs->make<TH1F>("clusWidthB", ("Cluster width in collection "+inTagA.encode()).c_str(), 125, 0., 125.);
+  h_clusBaryA = fs->make<TH1F>("clusBaryA", ("Cluster barycenter in collection "+inTagA.encode()).c_str(), 100, 0., 100.);
+  h_clusBaryB = fs->make<TH1F>("clusBaryB", ("Cluster barycenter in collection "+inTagB.encode()).c_str(), 100, 0., 100.);
+  h_clusVarA = fs->make<TH1F>("clusVarA", ("Cluster variance in collection "+inTagA.encode()).c_str(), 100, 0., 100.);
+  h_clusVarB = fs->make<TH1F>("clusVarB", ("Cluster variance in collection "+inTagB.encode()).c_str(), 100, 0., 100.);
 }
 
 void SiStripClusterStatsDiff::analyze(const edm::Event& evt, const edm::EventSetup& eSetup)
@@ -57,6 +67,20 @@ void SiStripClusterStatsDiff::analyze(const edm::Event& evt, const edm::EventSet
       h_nClusDiff->Fill(-dsetA.size());
       h_nClusRelDiff->Fill(-1.);
     }
+    for ( const SiStripCluster& clA : dsetA ) {
+      const auto& amps = clA.amplitudes();
+      float sumx{0.}, sumxsq{0.};
+      auto iStrip = clA.firstStrip();
+      for ( auto digi : amps ) {
+        sumx += iStrip*digi;
+        sumxsq += iStrip*iStrip*digi;
+      }
+      const auto chg = clA.charge();
+      h_clusChargeA->Fill(chg);
+      h_clusWidthA ->Fill(amps.size());
+      h_clusBaryA  ->Fill(sumx/chg);
+      h_clusVarA   ->Fill(std::sqrt(sumxsq*chg-sumx*sumx)/chg);
+    }
   }
   for ( const auto& dsetB : *digisB ) {
     h_nClusB->Fill(dsetB.size());
@@ -64,6 +88,20 @@ void SiStripClusterStatsDiff::analyze(const edm::Event& evt, const edm::EventSet
     if ( digisA->end() == i_dsetA ) { // B\A
       h_nClusDiff->Fill(dsetB.size());
       h_nClusRelDiff->Fill(1.);
+    }
+    for ( const SiStripCluster& clB : dsetB ) {
+      const auto& amps = clB.amplitudes();
+      float sumx{0.}, sumxsq{0.};
+      auto iStrip = clB.firstStrip();
+      for ( auto digi : amps ) {
+        sumx += iStrip*digi;
+        sumxsq += iStrip*iStrip*digi;
+      }
+      const auto chg = clB.charge();
+      h_clusChargeB->Fill(chg);
+      h_clusWidthB ->Fill(amps.size());
+      h_clusBaryB  ->Fill(sumx/chg);
+      h_clusVarB   ->Fill(std::sqrt(sumxsq*chg-sumx*sumx)/chg);
     }
   }
 }
