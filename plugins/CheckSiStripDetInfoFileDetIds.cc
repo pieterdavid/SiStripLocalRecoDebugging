@@ -28,7 +28,7 @@ CheckSiStripDetInfoFileDetIds::CheckSiStripDetInfoFileDetIds(const edm::Paramete
 void CheckSiStripDetInfoFileDetIds::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
   const auto& geomDet = iSetup.getData(m_geomDetToken);
-  const auto geomDetIdList = getSiStripDetIds(geomDet);
+  const auto geomDetIdList = TrackerGeometryUtils::getSiStripDetIds(geomDet);
   const auto fileDetIdList = m_reader.getAllDetIds();
   edm::LogInfo("CheckSiStripDetInfoFileDetIds") << "Number of DetIds from file: " << fileDetIdList.size() << "; from GeometricDet: " << geomDetIdList.size();
   const auto nToCheckEqual = std::min(fileDetIdList.size(), geomDetIdList.size());
