@@ -118,6 +118,7 @@ void SiStripRawDigiDiff::analyze(const edm::Event& evt, const edm::EventSetup& e
         ++goodMods;
       } else {
         if ( diffMods < m_nDiffToPrint ) {
+          edm::LogInfo("SiStripRawDigiDiff") << "Differences for det " << dsetA.id;
           edm::LogInfo("SiStripRawDigiDiff") << "A digis: " << rawDigiListToString(dsetA);
           edm::LogInfo("SiStripRawDigiDiff") << "B digis: " << rawDigiListToString(dsetB);
         }
