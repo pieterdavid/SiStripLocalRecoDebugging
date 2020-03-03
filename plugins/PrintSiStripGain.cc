@@ -40,6 +40,7 @@ namespace {
     const auto angle = topo.stripAngle(strip);
     const auto cosa = std::cos(angle);
     const auto sina = std::sin(angle);
+    // stripAngle is clockwise with respect to positive y-axis, see TkRadialStripTopology::stripAngle
     const auto dxy = LocalPoint::VectorType(.5*topo.stripLength()*sina, .5*topo.stripLength()*cosa, 0.);
     return std::make_pair(lpMid+dxy, lpMid-dxy);
   }
