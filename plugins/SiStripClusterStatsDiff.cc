@@ -63,9 +63,13 @@ void SiStripClusterStatsDiff::analyze(const edm::Event& evt, const edm::EventSet
       const auto& dsetB = *i_dsetB;
       h_nClusDiff->Fill(dsetB.size()-dsetA.size());
       h_nClusRelDiff->Fill(.5*(dsetB.size()-dsetA.size())/(dsetB.size()+dsetA.size()));
+      if ( dsetA.size() != dsetB.size() ) {
+        LogDebug("SiStripClusterStatsDiff") << "Module " << dsetA.id() << " has " << dsetA.size() << " clusters in A and " << dsetB.size() << " in B";
+      }
     } else { // A\B
       h_nClusDiff->Fill(-dsetA.size());
       h_nClusRelDiff->Fill(-1.);
+      LogDebug("SiStripClusterStatsDiff") << "Module " << dsetA.id() << " has " << dsetA.size() << " clusters in A, none in B";
     }
     for ( const SiStripCluster& clA : dsetA ) {
       const auto& amps = clA.amplitudes();
@@ -88,6 +92,7 @@ void SiStripClusterStatsDiff::analyze(const edm::Event& evt, const edm::EventSet
     if ( digisA->end() == i_dsetA ) { // B\A
       h_nClusDiff->Fill(dsetB.size());
       h_nClusRelDiff->Fill(1.);
+      LogDebug("SiStripClusterStatsDiff") << "Module " << dsetB.id() << " has " << dsetB.size() << " clusters in B, none in A";
     }
     for ( const SiStripCluster& clB : dsetB ) {
       const auto& amps = clB.amplitudes();
